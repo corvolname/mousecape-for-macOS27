@@ -7,6 +7,58 @@
 
 ---
 
+## 0 直接下载（不想自己编译就用这个）
+
+### ⬇️ [Mousecape-macOS27.dmg](https://github.com/corvolname/mousecape-for-macOS27/releases/download/v1813-macos27/Mousecape-macOS27.dmg)
+
+| 项 | 值 |
+|---|---|
+| 版本 | 1813（macOS 26/27 适配版）|
+| 体积 | 4.1 MB |
+| SHA-256 | `a385a0b2d4c0780f95fd51da86651787fba46af5eab0247b44b50d66f5db422c` |
+| 要求 | macOS 12.0+（含 26 / 27）；universal（Apple Silicon + Intel）|
+| 直达 Release | [v1813-macos27](https://github.com/corvolname/mousecape-for-macOS27/releases/tag/v1813-macos27) |
+
+**安装**：打开 DMG → 把 App 拖到 Applications。
+
+**★首次打开会被拦 —— 这是正常的**：为了让修复生效，必须替换 App 内部的
+`mousecloak` 组件并**用临时签名（ad-hoc）重新签名**，因此不再是苹果公证版本。
+任选一种方式打开（只需一次）：
+
+```bash
+# 方式一（推荐）：在 Applications 里「右键点 App → 打开 → 再点打开」
+# 方式二（命令行）：
+xattr -dr com.apple.quarantine "/Applications/Mousecape-2.app"
+```
+
+DMG 内附 `安装说明.txt`，同样内容。
+
+**验证是否真的生效**（别只看 App 的 `Applied successfully`）：
+
+```bash
+# 先跑一次探测，确认本机允许替换
+./build/mousecloak --probe
+
+# 应用你的 cape 后，回读并与 cape 逐像素比对
+./build/cursor-state --compare "你的.cape"
+#   Arrow 一行必须显示「一致（已生效）」
+```
+
+### 校验下载完整性
+
+```bash
+shasum -a 256 ~/Downloads/Mousecape-macOS27.dmg
+# 应输出：a385a0b2d4c0780f95fd51da86651787fba46af5eab0247b44b50d66f5db422c
+```
+
+### 更新机制
+
+App 的 `SUFeedURL` 指向本仓库的 [`appcast.xml`](appcast.xml)（**已从上游改为本仓库**，
+否则它会把本适配版"更新"成上游原版，等于把修复覆盖掉）。
+发布新版本的做法写在 `appcast.xml` 顶部注释里。
+
+---
+
 ## 1 结论先说
 
 | 项 | 结论 |

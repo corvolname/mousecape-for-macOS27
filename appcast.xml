@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Sparkle 更新源（appcast）
+
+  ★为什么自建：原版 App 的 SUFeedURL 指向 alexzielenski/Mousecape，
+    那会让本适配版去"更新"成上游原版（等于把修复覆盖掉）。
+    ⇒ 改为指向本仓库，内容由你掌控。
+
+  ★发布新版本时：
+    1. build-dmg.sh 打包新 DMG
+    2. 建 GitHub Release 并上传 DMG
+    3. 把下面 sparkle:version / shortVersionString / enclosure 三处换成新版本的
+       （version 递增、length 用字节数、url 换新资产直链）
+    4. 提交本文件
+
+  ★签名：下面未带 sparkle:edSignature。Sparkle 只有在 Info.plist 配置了
+    SUPublicEDKey 时才校验签名；本适配版未配置公钥，故不校验。
+    将来要启用需用 Sparkle 的 sign_update 生成 edSignature。
+-->
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>Mousecape macOS 26/27 适配版</title>
+    <link>https://github.com/corvolname/mousecape-for-macOS27</link>
+    <description>macOS 26/27 指针主题修复版</description>
+    <language>zh-cn</language>
+    <item>
+      <title>Mousecape 1813 · macOS 26/27 适配版</title>
+      <pubDate>Tue, 13 Oct 2026 04:01:28 +0000</pubDate>
+      <sparkle:version>1813</sparkle:version>
+      <sparkle:shortVersionString>1813</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
+      <description><![CDATA[
+        修复 macOS 26/27 上箭头与 I 型光标不生效的问题；
+        新增别名注册、回读校验、逐指针备份修复与 --probe 自检。
+      ]]></description>
+      <enclosure
+        url="https://github.com/corvolname/mousecape-for-macOS27/releases/download/v1813-macos27/Mousecape-macOS27.dmg"
+        sparkle:version="1813"
+        length="4320597"
+        type="application/octet-stream" />
+    </item>
+  </channel>
+</rss>

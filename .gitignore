@@ -12,3 +12,6 @@ build/
 .vscode/
 *.xcuserdatad/
 xcuserdata/
+
+# 打包产物（DMG 走 Release 发布，不入库）
+dist/
