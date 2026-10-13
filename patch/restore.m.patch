@@ -1,0 +1,13 @@
+--- a/mousecloak/restore.m	2024-07-17 14:13:03
++++ b/mousecloak/restore.m	2026-10-13 11:27:58
+@@ -40,6 +40,10 @@
+         i++;
+     }
+ 
++    for (NSString *alias in cursorAliases().allValues) {
++        restoreCursorForIdentifier(backupStringForIdentifier(alias));
++    }
++
+     // Backup auxiliary cursors
+     MMLog("Restoring core cursors...");
+     if (CoreCursorUnregisterAll(CGSMainConnectionID()) == 0) {

@@ -1,0 +1,31 @@
+--- a/mousecloak/backup.m	2024-07-17 14:13:03
++++ b/mousecloak/backup.m	2026-10-13 11:27:58
+@@ -34,21 +34,18 @@
+ }
+ 
+ void backupAllCursors() {
+-    bool arrowRegistered = false;
+-    MCIsCursorRegistered(CGSMainConnectionID(), (char *)backupStringForIdentifier(@"com.apple.coregraphics.Arrow").UTF8String, &arrowRegistered);
+-    
+-    if (arrowRegistered) {
+-        MMLog("Skipping backup, backup already exists");
+-//         we are already backed up
+-        return;
+-    }
+-    // Backup main cursors first
++    // Check each cursor on its own: one registered after the Arrow backup was made would never get a backup, and since macOS 27 reset cannot remove it
+     NSUInteger i = 0;
+     NSString *key = nil;
+     while ((key = defaultCursors[i]) != nil) {
+         backupCursorForIdentifier(key);
+         i++;
+     }
++
++    // Skipped automatically on systems that don't register these names
++    for (NSString *alias in cursorAliases().allValues) {
++        backupCursorForIdentifier(alias);
++    }
+     // no need to backup core cursors
+     
+ }
+\ No newline at end of file

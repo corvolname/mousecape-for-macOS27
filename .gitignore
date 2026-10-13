@@ -1,0 +1,14 @@
+# 编译产物（可由 build-mousecloak.sh / clang 重新生成，不入库）
+build/
+*.o
+
+# 备份与临时
+*.bak
+*.bak-*
+*.orig-*
+.DS_Store
+
+# 编辑器
+.vscode/
+*.xcuserdatad/
+xcuserdata/

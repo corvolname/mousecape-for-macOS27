@@ -1,0 +1,36 @@
+--- a/mousecloak/main.m	2024-07-17 14:13:03
++++ b/mousecloak/main.m	2026-10-13 11:27:58
+@@ -58,6 +58,7 @@
+         [options registerOption:'x' long:@"convert" description:@"Convert a .MightyMouse file to cape. Default output is to a new file of the same name" flags:GBValueRequired];
+         [options registerSeparator:@(BOLD "MISCELLANEOUS" RESET)];
+         [options registerOption:'e' long:@"export" description:@"Export a cape to a directory" flags:GBValueRequired];
++        [options registerOption:'p' long:@"probe" description:@"Check which built-in cursors this version of macOS lets Mousecape replace" flags:GBValueNone];
+         [options registerOption:'?' long:@"help" description:@"Display this help and exit" flags:GBValueNone];
+         [options registerOption:'o' long:@"output" description:@"Use this option to tell where an output file goes. (For convert, create, and export)" flags:GBValueRequired];
+         [options registerOption:0 long:@"suppressCopyright" description:@"Suppress Copyright info" flags:GBValueNone | GBOptionNoHelp | GBOptionNoPrint];
+@@ -115,6 +116,7 @@
+         BOOL scale   = [settings isKeyPresentAtThisLevel:@"scale"];
+         BOOL listen  = [settings isKeyPresentAtThisLevel:@"listen"];
+         BOOL export  = [settings isKeyPresentAtThisLevel:@"export"];
++        BOOL probe   = [settings isKeyPresentAtThisLevel:@"probe"];
+         int amt = 0;
+         
+         if (convert) amt++;
+@@ -124,6 +126,7 @@
+         if (scale) amt++;
+         if (listen) amt++;
+         if (export) amt++;
++        if (probe) amt++;
+         
+         if (amt > 1) {
+             MMLog(BOLD RED "One command at a time, son!" RESET);
+@@ -160,6 +163,9 @@
+             }
+             goto fin;
+ 
++        } else if (probe) {
++            probeCursorOverrides();
++            goto fin;
+         } else if (dump) {
+             dumpCursorsToFile([settings objectForKey:@"dump"], ^BOOL (NSUInteger progress, NSUInteger total) {
+                 MMLog("Dumped %lu of %lu", (unsigned long)progress, (unsigned long)total);

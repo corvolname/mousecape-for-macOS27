@@ -1,0 +1,32 @@
+--- a/mousecloak/MCDefs.m	2024-07-17 14:13:03
++++ b/mousecloak/MCDefs.m	2026-10-13 11:27:58
+@@ -190,6 +190,18 @@
+     return cursorNameMap;
+ }
+ 
++// Newer names the system draws the same cursor from; macOS 26 and later draw the arrow and I-beam from ArrowS and IBeamS
++NSDictionary *cursorAliases(void) {
++    static NSDictionary *aliases = nil;
++    static dispatch_once_t onceToken;
++    dispatch_once(&onceToken, ^{
++        aliases = [@{ @"com.apple.coregraphics.Arrow": @"com.apple.coregraphics.ArrowS",
++                      @"com.apple.coregraphics.IBeam": @"com.apple.coregraphics.IBeamS" } retain];
++    });
++
++    return aliases;
++}
++
+ NSString *nameForCursorIdentifier(NSString *identifier) {
+     NSString *name = cursorMap()[identifier];
+     return name ?: @"Unknown";
+@@ -217,6 +229,10 @@
+ }
+ 
+ BOOL MCCursorIsPointer(NSString *identifier) {
++    NSString *legacyIdentifier = [cursorAliases() allKeysForObject:identifier].firstObject;
++    if (legacyIdentifier)
++        identifier = legacyIdentifier;
++
+     static NSArray *pointers = nil;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{

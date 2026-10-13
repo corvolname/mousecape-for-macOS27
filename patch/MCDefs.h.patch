@@ -1,0 +1,10 @@
+--- a/mousecloak/MCDefs.h	2024-07-17 14:13:03
++++ b/mousecloak/MCDefs.h	2026-10-13 11:27:58
+@@ -61,6 +61,7 @@
+ extern const NSString *MCCursorDictionaryRepresentationsKey;
+ 
+ extern NSDictionary *cursorMap(void);
++extern NSDictionary *cursorAliases(void);
+ extern NSString *nameForCursorIdentifier(NSString *identifier);
+ extern NSString *cursorIdentifierForName(NSString *name);
+ 
