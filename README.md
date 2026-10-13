@@ -1,0 +1,1 @@
+# mousecape-for-macOS27
