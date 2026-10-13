@@ -18,6 +18,8 @@ APP="${1:?用法: bash build-dmg.sh <app 路径> [输出 dmg 路径]}"
 APP="$(cd "$(dirname "$APP")" && pwd)/$(basename "$APP")"
 [ -d "$APP" ] || { echo "  ✗ 找不到 app: $APP" >&2; exit 2; }
 APPNAME="$(basename "$APP" .app)"
+# ★版本必须在"生成安装说明"之前取到（早先放在后面 ⇒ sed 用到时 unbound）
+VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo '?')"
 OUT="${2:-$(dirname "$APP")/${APPNAME}.dmg}"
 OUT="$(cd "$(dirname "$OUT")" && pwd)/$(basename "$OUT")"
 STAGE="$(mktemp -d)"
@@ -38,42 +40,20 @@ echo "  [1/4] 准备暂存目录"
 cp -Rp "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 
-# ★安装说明：ad-hoc 签名会被 Gatekeeper 拦，必须写清怎么打开
-VER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist" 2>/dev/null || echo '?')"
-cat > "$STAGE/安装说明.txt" <<EOF
-${APPNAME} ${VER} — macOS 26 / 27 适配版
+# ★安装说明与一键安装脚本：放在 dist-files/ 里作为**独立文件**维护，
+#   由本脚本复制进 DMG。
+#   ★★为什么不内联 heredoc：脚本里的 `$(...)`、反引号会在**本脚本**解析时被提前展开
+#     （实测踩过：helper 里的 $(basename ...) 被外层执行 ⇒ "command not found"）。
+DRY_SRC="$(cd "$(dirname "$0")" && pwd)/dist-files"
+[ -d "$DRY_SRC" ] || { echo "  ✗ 找不到 dist-files/ 目录" >&2; exit 2; }
 
-【安装】
-  把左侧的 ${APPNAME}.app 拖到右侧的 Applications 文件夹。
+# 安装说明：模板里替换 App 名与版本
+sed -e "s/@APPNAME@/${APPNAME}/g" -e "s/@VER@/${VER}/g" \
+    "$DRY_SRC/安装说明.txt.in" > "$STAGE/安装说明.txt"
 
-【★首次打开会被拦住 —— 这是正常的】
-  本 App 为了让鼠标指针主题在 macOS 26/27 上真正生效，替换了内部的 mousecloak
-  命令行组件，因此**只能用临时签名（ad-hoc）重新签名**，不再是苹果公证版本。
-  ⇒ 首次打开时 macOS 会提示"无法验证开发者"或"已损坏"，请任选一种方式：
-
-  方式一（推荐）：在 Applications 里 **右键点 App → 打开 → 再点"打开"**。
-                 只需做一次，之后双击即可正常启动。
-
-  方式二（命令行，一次性）：
-      xattr -dr com.apple.quarantine "/Applications/${APPNAME}.app"
-
-【为什么需要这个适配版】
-  自 macOS 26 起，系统改从新名字绘制「箭头」和「I 型文字光标」
-  （com.apple.coregraphics.ArrowS / .IBeamS）。
-  原版 Mousecape 只注册旧名字，虽然报告 "Applied successfully"，
-  但箭头和文字光标**不会改变**。本版会在新旧两个名字上同时注册，
-  并在注册后**回读校验**（因为"返回成功"在 macOS 26/27 上不再等于生效）。
-
-【已知限制】
-  · 特权辅助工具（负责"登录时自动重新应用"）仍是旧逻辑。若未在 App 里执行过
-    "Install Helper Tool"，则无影响。
-  · 若你从旧版本升级：建议先在旧版里点一次 Reset，再装本版。
-
-【上游与许可】
-  基于 alexzielenski/Mousecape（含 PR #308 的实现）。
-  上游许可证含"仅限个人非商业用途"条款 —— 请勿用于商业目的。
-  源码与完整说明：https://github.com/corvolname/mousecape-for-macOS27
-EOF
+# 一键安装脚本：直接复制并确保可执行
+cp -p "$DRY_SRC/一键安装.command" "$STAGE/一键安装.command"
+chmod +x "$STAGE/一键安装.command"
 
 # ── 2. 建可读写 DMG 并挂载 ──────────────────────────────────
 echo "  [2/4] 创建并挂载临时 DMG"

@@ -15,11 +15,25 @@
 |---|---|
 | 版本 | 1813（macOS 26/27 适配版）|
 | 体积 | 4.1 MB |
-| SHA-256 | `a385a0b2d4c0780f95fd51da86651787fba46af5eab0247b44b50d66f5db422c` |
+| SHA-256 | `c53ec56a107f000743e2e0e60f7b8a36a87bb4bf50ad4297d5a04966be5d73ea` |
 | 要求 | macOS 12.0+（含 26 / 27）；universal（Apple Silicon + Intel）|
 | 直达 Release | [v1813-macos27](https://github.com/corvolname/mousecape-for-macOS27/releases/tag/v1813-macos27) |
 
-**安装**：打开 DMG → 把 App 拖到 Applications。
+**安装 —— ★必须放进「应用程序」文件夹**
+
+打开 DMG → 把 App **拖到 Applications（应用程序）文件夹**。
+
+> **为什么必须这样**：macOS 的「启动台」(Launchpad) **只扫描 `/Applications`、
+> `~/Applications`、`/System/Applications`**。
+> 放在「下载」等文件夹里的 App，**启动台里根本不会出现**；
+> 而且从下载文件夹直接运行会被系统「路径随机化」(App Translocation)
+> 搬到临时目录执行，引发图标、权限、更新等一系列怪问题。
+>
+> 放进去后启动台若还看不到，跑一次 `killall Dock` 刷新。
+>
+> **更省事**：直接双击 DMG 里的 **`一键安装.command`** ——
+> 它会自动完成「复制到应用程序 + 去隔离标记 + 重建 Spotlight 索引 +
+> 注册到 Launch Services + 刷新启动台」全部步骤。
 
 **★首次打开会被拦 —— 这是正常的**：为了让修复生效，必须替换 App 内部的
 `mousecloak` 组件并**用临时签名（ad-hoc）重新签名**，因此不再是苹果公证版本。
@@ -48,7 +62,7 @@ DMG 内附 `安装说明.txt`，同样内容。
 
 ```bash
 shasum -a 256 ~/Downloads/Mousecape-macOS27.dmg
-# 应输出：a385a0b2d4c0780f95fd51da86651787fba46af5eab0247b44b50d66f5db422c
+# 应输出：c53ec56a107f000743e2e0e60f7b8a36a87bb4bf50ad4297d5a04966be5d73ea
 ```
 
 ### 更新机制
