@@ -12,6 +12,7 @@
 #import "create.h"
 #import "listen.h"
 #import "scale.h"
+#import "../shared/loginitem.h"   /* ★2026-10-16 登录项持久化（与 GUI 共用同一实现） */
 
 #import <GBCli/GBSettings.h>
 #import <GBCli/GBOptionsHelper.h>
@@ -64,6 +65,9 @@ int main(int argc, char * argv[]) {
         [options registerOption:0 long:@"suppressCopyright" description:@"Suppress Copyright info" flags:GBValueNone | GBOptionNoHelp | GBOptionNoPrint];
         [options registerOption:'s' long:@"scale" description:@"Scale the cursor to obscene multipliers or get the current scale" flags:GBValueOptional];
         [options registerOption:0 long:@"listen" description:@"Keep mousecloak alive to apply the current Cape every user switch" flags:GBValueNone | GBOptionNoHelp | GBOptionNoPrint];
+        /* ★2026-10-16：登录项持久化（重启后游标不失效） */
+        [options registerOption:0 long:@"install-login" description:@"Install a login item so the applied Cape is restored on every login/reboot" flags:GBValueNone];
+        [options registerOption:0 long:@"uninstall-login" description:@"Remove the login item installed by --install-login" flags:GBValueNone];
         
         options.applicationName = ^{ return @"mousecloak"; };
         options.applicationVersion = ^{ return @"2.0"; };
@@ -117,6 +121,8 @@ int main(int argc, char * argv[]) {
         BOOL listen  = [settings isKeyPresentAtThisLevel:@"listen"];
         BOOL export  = [settings isKeyPresentAtThisLevel:@"export"];
         BOOL probe   = [settings isKeyPresentAtThisLevel:@"probe"];
+        BOOL installLogin   = [settings isKeyPresentAtThisLevel:@"install-login"];
+        BOOL uninstallLogin = [settings isKeyPresentAtThisLevel:@"uninstall-login"];
         int amt = 0;
         
         if (convert) amt++;
@@ -127,6 +133,8 @@ int main(int argc, char * argv[]) {
         if (listen) amt++;
         if (export) amt++;
         if (probe) amt++;
+        if (installLogin) amt++;
+        if (uninstallLogin) amt++;
         
         if (amt > 1) {
             MMLog(BOLD RED "One command at a time, son!" RESET);
@@ -181,6 +189,27 @@ int main(int argc, char * argv[]) {
                 setCursorScale(dbl);
             }
             goto fin;
+        } else if (installLogin || uninstallLogin) {
+            /* ★2026-10-16：装/卸"登录时自动恢复游标"的 LaunchAgent。
+               ★bootstrap 失败要**如实报错**（原实现用 SMLoginItemSetEnabled，
+                 它只表示"请求已提交"，即使进程根本不会被启动也返回成功
+                 —— 这正是"提示装好了、重启后照样失效"的来源）。 */
+            NSError *error = nil;
+            BOOL ok = MCSetLoginPersistenceEnabled(installLogin, nil, &error);   /* nil ⇒ 用自己（mousecloak） */
+            if (ok) {
+                MMLog(BOLD GREEN "%s" RESET,
+                      installLogin
+                        ? "Login item installed: the applied Cape will be restored on every login/reboot."
+                        : "Login item removed.");
+                if (installLogin)
+                    MMLog("  plist: %s", MCLoginPersistencePath().UTF8String);
+            } else {
+                MMLog(BOLD RED "Failed: %s" RESET,
+                      (error.localizedDescription ?: @"unknown error").UTF8String);
+                goto fin;
+            }
+            goto fin;
+
         } else if (listen) {
             listener();
             goto fin;

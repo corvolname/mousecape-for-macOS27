@@ -62,7 +62,7 @@ DMG 内附 `安装说明.txt`，同样内容。
 
 ```bash
 shasum -a 256 ~/Downloads/Mousecape-macOS27.dmg
-# 应输出：c53ec56a107f000743e2e0e60f7b8a36a87bb4bf50ad4297d5a04966be5d73ea
+# 应输出：5e52ee0c12798eb07d8d2d58a78c5a16c3c6f190e9dbd91ced1e486df954d574
 ```
 
 ### 更新机制
@@ -187,9 +187,9 @@ bash install-into-app.sh /path/to/Mousecape.app         # 实装
 
 | 项 | 状态 |
 |---|---|
-| **特权辅助工具**（`Contents/Library/LoginItems/...mousecloakhelper`） | **仍是旧逻辑**。它负责"登录时自动重新应用"。没执行过 App 里的 *Install Helper Tool* 则无影响；若已安装且希望它也带新逻辑，需重新构建 + **用开发者证书重签并走 SMJobBless 重新安装**，当前脚本不处理（避免破坏已注册的特权工具）。|
+| ~~特权辅助工具~~ | ★**已解决（2026-10-16）**：不再依赖它。改用**用户 LaunchAgent** 实现"登录/重启后自动恢复游标"，见 §6.9。那个 `Contents/Library/LoginItems/...mousecloakhelper` 保持原样（实测它在 macOS 27 + ad-hoc 签名下**不会被启动**，正是"重启后失效"的根因）。|
 | `package.json`/Xcode 工程 | **未改**。构建走 `build-mousecloak.sh`，不需要 Xcode。 |
-| 完整 GUI 重建 | **本次未做**：本机无完整 Xcode（仅 CLT），且 GUI 在 macOS 27 上工作正常，无需重建。 |
+| 完整 GUI 重建 | ★**已做（2026-10-16）**：为把登录项逻辑做进"Install Helper Tool"，用 `build-gui.sh` 在**只有 CLT**（无 Xcode）下重编了 GUI（26 个 `.m`，universal）。见 §6.9。 |
 | 动画指针 | `cursor-state` 只比**首帧**（动画指针在系统里也以首帧注册），足以判断"是不是 cape 的图"。 |
 | macOS 26 | 未实测（本机只有 27）。别名机制与 #308 报告的 26 行为一致。 |
 
@@ -395,6 +395,84 @@ repair-cursor --sys 3 --to com.apple.coregraphics.Alias \
 ★被污染的备份（实心块）: 0
 ```
 且"应用 cape → 审计 → `--reset` → 审计"全链路仍为 0 异常。
+
+## 6.9 ★第三个真实故障：重启后主题失效（登录项机制在 macOS 27 上不工作）
+
+**用户报**：「之前我们修改过 mousecape 的 app，然后重启以后，又失效了。」
+并要求：「安装 app 应用，并在菜单栏里的 install helper tool 后，以后不管怎么重启都不再失效。」
+
+### 结论：补丁没失效，"登录时重新应用"这条链断了
+
+实测（`mousecloak --apply` 前后回读 WindowServer 里的真实指针）：
+
+| 时刻 | `com.apple.coregraphics.Arrow` | `ArrowS` |
+|---|---|---|
+| 应用前（系统默认）| 28x40 热点(5,5) | 28x40 热点(5,5) |
+| **应用后** | **32x32 热点(0,0)** | **32x32 热点(0,0)** |
+
+⇒ 别名修复**是有效的**。失效发生在别处。
+
+### 根因（三条叠加）
+
+1. **原设计的 helper 登录项在 macOS 27 上不会被启动**
+   原版靠 `SMLoginItemSetEnabled("com.alexzielenski.mousecloakhelper")` 注册登录项，
+   由它跑 `mousecloak --listen` 在登录/用户切换时重新应用。
+   实测：该登录项**已注册、`Disposition: enabled`**，但 `launchctl print` 显示
+   **`active count = 0`** —— 进程**从未被启动**。
+   ★**不是崩溃**：手工直接跑那个可执行文件，它正常起来了。
+   最可能的原因是**代码签名**：本版是 **ad-hoc 签名（`TeamIdentifier` 为空）**，
+   而登录项启动要过签名校验（系统里记的开发者是原作者的 Team ID）。
+2. **主 App 自身的登录项是 `disabled`** ⇒ 它本该在登录时 `reapplyCape`，也不会跑。
+3. **`appliedCape` 是 `weak` 属性**（`MCLibraryController.m`）⇒ **不持久化**，
+   主程序重启也不会自己恢复上一次的主题。
+
+⇒ 三条合起来：登录后**没有任何东西**去重新应用那个 cape。
+
+### 修法：用户 LaunchAgent（并做进 App）
+
+* `src/shared/loginitem.{h,m}` —— **新增**，GUI 与 `mousecloak` **共用同一份实现**：
+  · 写 `~/Library/LaunchAgents/com.alexzielenski.mousecloakhelper.login.plist`
+  · 内容 = `mousecloak --listen`，`RunAtLoad=true`
+  · 随后 `launchctl bootstrap gui/<uid> <plist>` **立刻载入**
+  · ★**只有 bootstrap 成功才算安装成功**（不再出现"提示装好、其实没生效"）
+* `mousecloak` 新增两个子命令：
+  ```bash
+  mousecloak --install-login      # 装登录项
+  mousecloak --uninstall-login    # 卸登录项
+  ```
+* `MCAppDelegate.m`：
+  · **启动时自动确保登录项已装**（幂等）⇒ 用户连按钮都不用点；
+  · 菜单 **Install Helper Tool** 重写为装/卸这个 LaunchAgent；
+  · **检测口径改为"LaunchAgent 是否存在"**（原来看 `SMJobCopyDictionary`，
+    导致明明没生效却显示"已安装"）；
+  · 失败时**如实弹错误**（原实现无论是否真生效都可能显示成功）。
+* `build-gui.sh` —— **新增**：在只有 Command Line Tools（`xcodebuild` 不可用）的机器上
+  用 clang 重编 GUI；`install-into-app.sh` 现在同时替换 `Mousecloak` 与 `mousecloak` 两个二进制。
+
+**为什么 LaunchAgent 能work**：它走 **legacy 登录项通道**，
+**不经** `SMLoginItemSetEnabled` 的签名校验 ⇒ ad-hoc 签名也能可靠执行。
+
+**为什么用 `--listen` 而不是 `--apply <写死路径>`**：
+`listen.m` 启动时会 `applyCapeAtPath(appliedCapePathForUser(...))` —— **自己读偏好**
+⇒ 用户以后**换主题也不会过时**（写死路径会）；并且它持续监听用户切换与显示器变化。
+★实测：`--listen` 在 launchd 真实拉起时，能把 Arrow/ArrowS 从 28x40 恢复到 32x32。
+
+### 实测验证（建立"失效"基线再修复）
+
+```
+mousecloak --reset            ⇒ Arrow/ArrowS 28x40（系统默认）
+launchctl bootstrap <plist>   ⇒ Arrow/ArrowS 32x32（自动恢复）✅
+launchctl print               ⇒ runs=1, last exit code=0, properties=runatload
+GUI 重启（登录项缺失时）        ⇒ 日志 `[Mousecape] login persistence auto-installed`
+```
+
+### ★排查中我自己踩的坑（记下来）
+
+* **`mousecloak --reset` 会清掉 `MCAppliedCursor` 偏好**（`restore.m` 里写 NULL）。
+  我用它"模拟重启"⇒ 把偏好也擦了 ⇒ `--listen` 没东西可应用 ⇒ **连续两次误判"代码不行"**。
+  ⇒ 正确的模拟是：**保留偏好**，只重置系统指针注册。
+* 判断目录是否完整要用 `find | wc -l`，不能只看 `ls` 第一屏（我一度以为 app 被删空了）。
+* 补丁该在哪个二进制里要先搞清楚：`ArrowS` 字符串在 `mousecloak` 里，不在 GUI 里（GUI 里为 0 是正常的）。
 
 ## 7 排查纪律（本轮的教训）
 

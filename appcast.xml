@@ -25,7 +25,7 @@
     <language>zh-cn</language>
     <item>
       <title>Mousecape 1813 · macOS 26/27 适配版</title>
-      <pubDate>Tue, 13 Oct 2026 04:01:28 +0000</pubDate>
+      <pubDate>Thu, 16 Oct 2026 08:20:00 +0000</pubDate>
       <sparkle:version>1813</sparkle:version>
       <sparkle:shortVersionString>1813</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>12.0</sparkle:minimumSystemVersion>
@@ -36,7 +36,7 @@
       <enclosure
         url="https://github.com/corvolname/mousecape-for-macOS27/releases/download/v1813-macos27/Mousecape-macOS27.dmg"
         sparkle:version="1813"
-        length="4322069"
+        length="5200147"
         type="application/octet-stream" />
     </item>
   </channel>

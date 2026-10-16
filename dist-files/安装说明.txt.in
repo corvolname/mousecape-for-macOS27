@@ -45,10 +45,32 @@
   源码仓库里有只读探测工具可回读并与 cape 逐像素比对：
       https://github.com/corvolname/mousecape-for-macOS27
 
-【已知限制】
-  · 特权辅助工具（负责"登录时自动重新应用"）仍是旧逻辑。
-    若未在 App 里执行过 "Install Helper Tool"，则无影响。
-  · 若你从旧版本升级：建议先在旧版里点一次 Reset，再装本版。
+  ═══════════════════════════════════════════════════════════════
+  【★让主题在「重启后也不失效」（重要）】
+  ═══════════════════════════════════════════════════════════════
+    背景：macOS 只在**当前登录会话**里记住指针主题，重启/重新登录后会回到系统默认。
+    原版的"登录时自动重新应用"机制在 macOS 26/27 上**已失效**（它依赖的登录项
+    在临时签名下不会被系统启动）—— 这正是"应用了主题、重启后又变回默认"的原因。
+
+    本版改用**用户登录项(LaunchAgent)**，已在真实环境实测：
+      · App **启动时会自动装好**该登录项（无需你操作）；
+      · 你也可以在菜单里点一次 "Install Helper Tool"（两者等价，装的是同一个登录项）；
+      · 登录项在每次登录时执行 mousecloak，自动把你**当前应用的那套 cape**重新应用。
+
+    ⇒ 所以：装好 App → 应用你的 cape →（登录项已自动就位）→ 以后重启都保持。
+
+    【验证/管理】（终端）
+      查看登录项：
+        plutil -p ~/Library/LaunchAgents/com.alexzielenski.mousecloakhelper.login.plist
+      手动安装 / 卸载：
+        "/Applications/@APPNAME@.app/Contents/MacOS/mousecloak" --install-login
+        "/Applications/@APPNAME@.app/Contents/MacOS/mousecloak" --uninstall-login
+      回到系统默认指针：
+        "/Applications/@APPNAME@.app/Contents/MacOS/mousecloak" --reset
+
+  【已知限制】
+    · 若你从旧版本升级：建议先在旧版里点一次 Reset，再装本版。
+    · 本版为**通用二进制**（Apple 芯片 + Intel 都能跑）。
 
 【上游与许可】
   基于 alexzielenski/Mousecape（含 PR #308 的实现）。

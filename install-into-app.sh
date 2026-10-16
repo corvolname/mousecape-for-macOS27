@@ -37,39 +37,65 @@ if [ -z "$APP" ] || [ ! -d "$APP" ]; then
   echo "  找不到 Mousecape.app。请显式指定：bash install-into-app.sh /path/to/Mousecape.app" >&2
   exit 2
 fi
-TARGET="$APP/Contents/MacOS/mousecloak"
+# ★2026-10-16：现在要替换**两个**二进制
+#   · mousecloak —— 注册指针的实现（游标修复）
+#   · Mousecape  —— GUI；"Install Helper Tool" 菜单项在这里（现在会装真正的登录项）
+TARGET_MC="$APP/Contents/MacOS/mousecloak"
+TARGET_GUI="$APP/Contents/MacOS/Mousecape"
+GUI_NEW="$HERE/build/Mousecape"
 echo "  目标 App : $APP"
-echo "  目标文件 : $TARGET"
+echo "  目标文件 : $TARGET_MC"
+echo "             $TARGET_GUI"
 
 # ── 2. 前置检查 ─────────────────────────────────────────────
-[ -f "$TARGET" ] || { echo "  ✗ 该 App 内没有 Contents/MacOS/mousecloak" >&2; exit 2; }
+[ -f "$TARGET_MC" ] || { echo "  ✗ 该 App 内没有 Contents/MacOS/mousecloak" >&2; exit 2; }
 if [ ! -x "$NEW" ]; then
   echo "  构建修复版 mousecloak ..."
   bash "$HERE/build-mousecloak.sh" >/dev/null 2>&1 || { echo "  ✗ 构建失败，请先跑 build-mousecloak.sh 看错误" >&2; exit 2; }
 fi
-echo "  修复版架构: $(lipo -archs "$NEW" 2>/dev/null || echo '?')"
-echo "  原版架构  : $(lipo -archs "$TARGET" 2>/dev/null || echo '?')"
+if [ ! -f "$GUI_NEW" ]; then
+  if [ "${SKIP_GUI:-0}" = "1" ]; then
+    echo "  （SKIP_GUI=1 ⇒ 本次只换 mousecloak，不换 GUI）"
+  else
+    echo "  构建修复版 GUI ..."
+    bash "$HERE/build-gui.sh" >/dev/null 2>&1 || { echo "  ✗ GUI 构建失败，请先跑 build-gui.sh 看错误" >&2; exit 2; }
+  fi
+fi
+echo "  修复版架构: mousecloak=$(lipo -archs "$NEW" 2>/dev/null || echo '?')  gui=$(lipo -archs "$GUI_NEW" 2>/dev/null || echo '?')"
+echo "  原版架构  : mousecloak=$(lipo -archs "$TARGET_MC" 2>/dev/null || echo '?')  gui=$(lipo -archs "$TARGET_GUI" 2>/dev/null || echo '?')"
 
-# 已经装过就不再重复
-if cmp -s "$NEW" "$TARGET"; then
+# 已经装过就不再重复（两个都比对）
+FILES=("$NEW|$TARGET_MC")
+[ -f "$GUI_NEW" ] && [ -f "$TARGET_GUI" ] && FILES+=("$GUI_NEW|$TARGET_GUI")
+ALL_SAME=1
+for pair in "${FILES[@]}"; do
+  cmp -s "${pair%%|*}" "${pair##*|}" || ALL_SAME=0
+done
+if [ "$ALL_SAME" = "1" ]; then
   echo "  = 目标已是修复版，无需替换。"
   exit 0
 fi
 
 # ── 3. 备份 + 替换 + 签名 ───────────────────────────────────
 TS="$(date +%Y%m%d-%H%M%S)"
-BAK="$TARGET.orig-$TS"
+BAK="$TARGET_MC.orig-$TS"
 if [ "$DRY" = "1" ]; then
-  echo "  [DRY] 将备份 $TARGET -> $BAK"
-  echo "  [DRY] 将复制 $NEW -> $TARGET"
-  echo "  [DRY] 将对 $TARGET 执行 ad-hoc 签名"
+  for pair in "${FILES[@]}"; do
+    echo "  [DRY] 将备份 ${pair##*|} -> ${pair##*|}.orig-$TS"
+    echo "  [DRY] 将复制 ${pair%%|*} -> ${pair##*|}"
+  done
+  echo "  [DRY] 将对整个 .app 执行 ad-hoc 签名"
   exit 0
 fi
 
-cp -p "$TARGET" "$BAK" || { echo "  ✗ 备份失败" >&2; exit 3; }
-echo "  已备份 -> $(basename "$BAK")"
-cp "$NEW" "$TARGET" || { echo "  ✗ 替换失败（已保留备份）" >&2; exit 3; }
-chmod +x "$TARGET"
+for pair in "${FILES[@]}"; do
+  src="${pair%%|*}"; dst="${pair##*|}"
+  cmp -s "$src" "$dst" && { echo "  = $(basename "$dst") 已是修复版，跳过"; continue; }
+  cp -p "$dst" "$dst.orig-$TS" || { echo "  ✗ 备份失败: $dst" >&2; exit 3; }
+  echo "  已备份 -> $(basename "$dst").orig-$TS"
+  cp "$src" "$dst" || { echo "  ✗ 替换失败（已保留备份）: $dst" >&2; exit 3; }
+  chmod +x "$dst"
+done
 
 # ★★必须重签**整个 .app 包**，不能只签包内那一个文件。
 #   实测（macOS 27.0.1）：改动包内任何文件后，外层包的签名即失效，
@@ -93,7 +119,7 @@ esac
 # ── 4. 自检：用**装进去的那份**跑一次探测 ───────────────────
 echo
 echo "  自检（用 App 内的二进制，--probe）:"
-probe_out="$("$TARGET" --probe 2>&1)"; probe_rc=$?
+probe_out="$("$TARGET_MC" --probe 2>&1)"; probe_rc=$?
 if [ "$probe_rc" -eq 137 ]; then
   echo "    [FAIL] 进程被系统策略杀掉（rc=137）——多为**位置问题**（临时目录）或包签名未生效。"
   echo "           请把 App 移到 ~/Applications 或 /Applications 后再试。"
@@ -114,8 +140,13 @@ cat <<EOF
          "$HERE/build/cursor-state" --compare "<你的 cape 文件>"
        要看到 Arrow 一行显示 "一致（已生效）"
 
-  ⚠ 已知残留：Contents/Library/LoginItems 里的**特权辅助工具**仍是旧逻辑，
-    它负责"登录时自动重新应用"。你没执行 "Install Helper Tool" 的话不影响；
-    若已安装且希望它也用新逻辑，需要重新构建与签名（需开发者证书），当前脚本不处理。
-  ↩ 回滚：cp "$BAK" "$TARGET" && codesign --force --sign - "$TARGET"
+  ★2026-10-16 更新："登录时自动重新应用"现在由 **GUI 自己**负责（已随本脚本一起替换）：
+    · GUI 启动时会**自动确保**登录项已装（幂等）；
+    · 菜单里的 "Install Helper Tool" 也会装同一个登录项；
+    · 登录项是一个 **用户 LaunchAgent**（~/Library/LaunchAgents/
+      com.alexzielenski.mousecloakhelper.login.plist），登录时执行
+      `mousecloak --apply <当前 cape>`。
+    ⇒ 不再依赖 Contents/Library/LoginItems 里那个特权 helper
+      （实测它在 macOS 27 + ad-hoc 签名下**不会被启动**，这正是"重启后失效"的根因）。
+  ↩ 回滚：cp "$BAK" "$TARGET_MC" && codesign --force --sign - "$TARGET_MC"
 EOF

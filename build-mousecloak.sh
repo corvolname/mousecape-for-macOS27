@@ -35,6 +35,12 @@ build_arch() {           # $1=arch  $2=输出目录
   for f in "$SRC"/*.m; do
     clang -c "${common[@]}" -include "$SRC/mousecloak-Prefix.pch" "$f" -o "$objdir/mc_$(basename "${f%.m}").o" || return 1
   done
+  # ★2026-10-16：与 GUI 共用的"登录项持久化"实现（src/shared/loginitem.m）
+  local SHARED="$HERE/src/shared"
+  for f in "$SHARED"/*.m; do
+    [ -e "$f" ] || continue
+    clang -c "${common[@]}" -I "$SHARED" -include "$SRC/mousecloak-Prefix.pch" "$f" -o "$objdir/sh_$(basename "${f%.m}").o" || return 1
+  done
   clang -arch "$arch" -mmacosx-version-min=$MIN -isysroot "$SDK" -o "$objdir/mousecloak.$arch" "$objdir"/*.o \
     -framework Cocoa -framework SystemConfiguration -framework ApplicationServices || return 1
 }
