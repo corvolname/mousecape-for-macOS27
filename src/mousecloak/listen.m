@@ -66,7 +66,16 @@ void listener(void) {
     Boolean success = SCDynamicStoreSetNotificationKeys(store, keys, NULL);
     assert(success);
     
-    NSApplicationLoad();
+    /* ★★2026-10-16 去掉 NSApplicationLoad()（用户反馈："重启后 dock 栏有 2 个 app
+       图标，而且一直在跳跃"）。
+       原因：`NSApplicationLoad()` 会把**命令行工具**注册成一个 GUI 应用
+         ⇒ Dock 里出现一个 mousecloak 图标；而它永远不会 `[NSApp run]` / activate
+         ⇒ macOS 认为"这个 app 还在启动中" ⇒ **图标一直跳**。
+       为什么可以去掉：本函数后面的能力都不需要 GUI 应用 ——
+         · `CGDisplayRegisterReconfigurationCallback` 是 CoreGraphics 的 C 接口；
+         · 用户切换靠 `SCDynamicStore`（SystemConfiguration）；
+         · 应用主题靠已注册的 CGS 接口。
+       ⇒ 去掉后它就是个安静的**后台进程**，不再有 Dock 图标、也不再跳。 */
     CGDisplayRegisterReconfigurationCallback(reconfigurationCallback, NULL);
     MMLog(BOLD CYAN "Listening for Display changes" RESET);
     
