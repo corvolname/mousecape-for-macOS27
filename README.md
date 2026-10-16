@@ -62,7 +62,7 @@ DMG 内附 `安装说明.txt`，同样内容。
 
 ```bash
 shasum -a 256 ~/Downloads/Mousecape-macOS27.dmg
-# 应输出：5e52ee0c12798eb07d8d2d58a78c5a16c3c6f190e9dbd91ced1e486df954d574
+# 应输出：a40521213cf9dff697a371bbc9854f6c8b97a72b6e183ac5c2ddf1f0e86eb081
 ```
 
 ### 更新机制
@@ -442,6 +442,8 @@ repair-cursor --sys 3 --to com.apple.coregraphics.Alias \
   ```
 * `MCAppDelegate.m`：
   · **启动时自动确保登录项已装**（幂等）⇒ 用户连按钮都不用点；
+  · ★**应用/重新应用主题成功后也会确保登录项已装**（幂等）
+    —— 覆盖"先装 app、之后才导入并应用主题"的顺序；
   · 菜单 **Install Helper Tool** 重写为装/卸这个 LaunchAgent；
   · **检测口径改为"LaunchAgent 是否存在"**（原来看 `SMJobCopyDictionary`，
     导致明明没生效却显示"已安装"）；

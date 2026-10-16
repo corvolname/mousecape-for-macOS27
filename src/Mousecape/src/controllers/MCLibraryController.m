@@ -11,6 +11,8 @@
 #import "apply.h"
 #import "restore.h"
 #import "create.h"
+/* ★2026-10-16：应用主题后确保"登录时自动恢复"的登录项已装（与 GUI/mousecloak 共用实现） */
+#import "loginitem.h"
 
 static NSString *const MCSuppressIgnoredCursorsNoticeKey = @"MCSuppressIgnoredCursorsNotice";
 
@@ -143,12 +145,35 @@ static NSString *const MCSuppressIgnoredCursorsNoticeKey = @"MCSuppressIgnoredCu
     if (applyCapeAtPathReportingIgnored(cape.fileURL.path, ignored)) {
         self.appliedCape = cape;
         [self showIgnoredCursorsNotice:ignored forCape:cape];
+        /* ★★2026-10-16：应用成功后再确保"登录时自动恢复"的登录项已装。
+           为什么放在这里（而不只放在 App 启动时）：
+             · 用户可能"先装 app、之后才导入并应用主题" ⇒ 启动那一刻还没有 cape，装不了；
+             · 此刻 `applyCapeAtPath` 已把偏好 MCAppliedCursor 写好 ⇒ 路径必然可解析。
+           ★幂等：已装则直接返回，不重复写 plist / 不重复 bootstrap。
+           ★失败不打扰用户：它只是"重启后是否能自动恢复"的增强，不该阻塞"应用主题"本身。 */
+        [self ensureLoginPersistenceInstalled];
     }
 }
 
 - (void)reapplyCape:(MCCursorLibrary *)cape {
     if (applyCapeAtPath(cape.fileURL.path)) {
         self.appliedCape = cape;
+        [self ensureLoginPersistenceInstalled];   /* 同上：幂等地确保登录项在位 */
+    }
+}
+
+/* ★2026-10-16：确保"登录时自动恢复游标"的登录项已装（幂等）。
+   登录项执行的是 app 内的 mousecloak（不是 GUI 自己）。 */
+- (void)ensureLoginPersistenceInstalled {
+    if (MCLoginPersistenceInstalled()) return;
+    NSString *exe = NSBundle.mainBundle.executablePath;
+    if (exe.length == 0) return;
+    exe = [exe.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"mousecloak"];
+    NSError *e = nil;
+    if (MCSetLoginPersistenceEnabled(YES, exe, &e)) {
+        NSLog(@"[Mousecape] login persistence installed after applying a cape");
+    } else {
+        NSLog(@"[Mousecape] login persistence install failed: %@", e.localizedDescription);
     }
 }
 
