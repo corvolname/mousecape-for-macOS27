@@ -36,32 +36,31 @@
 }
 
 - (void)composeAccessory {
-    NSView *themeFrame = [self.window.contentView superview];
+    /* ★★2026-10-16 修正「顶部错位」（用户反馈："mousecape 在顶部都是错位的"）。
+       原实现：把 accessory 加到 **themeFrame**（＝整个窗口框，**含标题栏**）上，
+       并用 `V:|-(0)-[accessory(20)]-(>=22)-|` 钉在**最顶端**
+       ⇒ 落在标题栏里，把标题栏标题压住/裁掉。
+       中间试过"放进 contentView"：标题栏恢复正常了，但 accessory 会**压在 cape 卡片上**。
+       ⇒ 最终做法（也是这个视图本来的用途，nib 里它的 autoresizing 就是"贴右上"）：
+         交给 **NSTitlebarAccessoryViewController**，由 AppKit 放进**标题栏右侧**。
+         这样标题栏与内容区都不受影响，也随窗口缩放自动停在右上角。
+       ★幂等：awakeFromNib 与 windowDidLoad 都会调它，重复调用时先摘掉旧的。 */
+    NSWindow *window = self.window;
     NSView *accessory = self.appliedAccessory;
-    [accessory setTranslatesAutoresizingMaskIntoConstraints:NO];
-    
-    NSRect c  = themeFrame.frame;
-    NSRect aV = accessory.frame;
-    NSRect newFrame = NSMakeRect(
-                                 c.size.width - aV.size.width,	// x position
-                                 c.size.height - aV.size.height,	// y position
-                                 aV.size.width,	// width
-                                 aV.size.height);	// height
-    
-    [accessory setFrame:newFrame];
-    [themeFrame addSubview:accessory];
-    
-    [themeFrame addConstraints:[NSLayoutConstraint
-                                constraintsWithVisualFormat:@"H:|-(>=100)-[accessory(245)]-(0)-|"
-                                options:0
-                                metrics:nil
-                                views:NSDictionaryOfVariableBindings(accessory)]];
-    [themeFrame addConstraints:[NSLayoutConstraint
-                                constraintsWithVisualFormat:@"V:|-(0)-[accessory(20)]-(>=22)-|"
-                                options:0
-                                metrics:nil
-                                views:NSDictionaryOfVariableBindings(accessory)]];
+    if (!window || !accessory) return;
+
+    for (NSTitlebarAccessoryViewController *vc in window.titlebarAccessoryViewControllers) {
+        if (vc.view == accessory) return;          /* 已就位 */
+    }
+    if (accessory.superview) [accessory removeFromSuperview];
+
+    NSTitlebarAccessoryViewController *tavc = [[NSTitlebarAccessoryViewController alloc] init];
+    tavc.view = accessory;
+    tavc.layoutAttribute = NSLayoutAttributeRight;   /* 停标题栏右侧 */
+    [window addTitlebarAccessoryViewController:tavc];
 }
+
+
 
 - (NSUndoManager *)windowWillReturnUndoManager:(NSWindow *)window {
     return self.libraryViewController.libraryController.undoManager;
