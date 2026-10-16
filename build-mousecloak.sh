@@ -27,6 +27,7 @@ build_arch() {           # $1=arch  $2=输出目录
   mkdir -p "$objdir"
   local common=(-isysroot "$SDK" -mmacosx-version-min=$MIN -arch "$arch" -O2
                 -I "$SRC" -I "$SRC/CGSInternal" -I "$SRC/vendor"
+                -I "$HERE/src/shared"   # ★内置 cape / 登录项共用实现（GUI 与 mousecloak 共用）
                 -Wno-deprecated-declarations -Wno-objc-method-access -Wno-unguarded-availability)
   # GBCli 用 __weak ⇒ 必须 ARC；mousecloak 本体是手动内存管理 ⇒ 非 ARC（照 Xcode 设置）
   for f in "$SRC"/vendor/GBCli/*.m; do

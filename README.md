@@ -62,7 +62,7 @@ DMG 内附 `安装说明.txt`，同样内容。
 
 ```bash
 shasum -a 256 ~/Downloads/Mousecape-macOS27.dmg
-# 应输出：3b3c16a4db3898a3c74e8788095ed0745e208271ccfc109b1ec52077993f9e38
+# 应输出：05774d77727fb3887b92db5021bf93f37804d0c06d0085f508a9de88ffb4def2
 ```
 
 ### 更新机制

@@ -13,12 +13,25 @@
 #import "CGSCursor.h"
 #import <Cocoa/Cocoa.h>
 #import "scale.h"
+#import "loginitem.h"   /* ★内置 cape 兜底（与 GUI 共用实现） */
 
 NSString *appliedCapePathForUser(NSString *user) {
     NSString *home = NSHomeDirectoryForUser(user);
     NSString *ident =     MCDefaultFor(@"MCAppliedCursor", user, (NSString *)kCFPreferencesCurrentHost);
     NSString *appSupport = [home stringByAppendingPathComponent:@"Library/Application Support"];
-    return [[[appSupport stringByAppendingPathComponent:@"Mousecape/capes"] stringByAppendingPathComponent:ident] stringByAppendingPathExtension:@"cape"];
+    NSString *userPath = [[[appSupport stringByAppendingPathComponent:@"Mousecape/capes"] stringByAppendingPathComponent:ident] stringByAppendingPathExtension:@"cape"];
+
+    /* ★★2026-10-16：用户库那套不存在时，回退到 **app 内置**的那套。
+       用户口径：「所有东西都是内置的，封装进 app，不是安装后还需要单独去跑独立的脚本」。
+       为什么需要这条：登录时若偏好为空（从未应用过 / 被 --reset 清过）或
+       指向的 cape 已被用户删除，原实现会拿一个**不存在的路径**去 apply ⇒ 静默失败、
+       游标保持系统默认。有了内置兜底，**开箱即用**。
+       ★注意：用户**显式**应用的那套始终优先（用户可编辑/删除/新增）。 */
+    if (![[NSFileManager defaultManager] fileExistsAtPath:userPath]) {
+        NSString *embedded = MCEmbeddedDefaultCapePath();
+        if (embedded) return embedded;
+    }
+    return userPath;
 }
 
 static void UserSpaceChanged(SCDynamicStoreRef	store, CFArrayRef changedKeys, void *info) {

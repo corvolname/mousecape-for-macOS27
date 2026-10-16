@@ -97,6 +97,24 @@ for pair in "${FILES[@]}"; do
   chmod +x "$dst"
 done
 
+# ── 3.5 内置 cape（★2026-10-16 用户口径：「所有东西都是内置的，封装进 app」）──
+#   把 src/capes/*.cape 拷进 app 的 Contents/Resources/capes/。
+#   app 首次运行时会把它们复制进用户库 ⇒ 用户可编辑/删除/新增；
+#   而"重启后自动恢复"用内置那套兜底 ⇒ 不再依赖任何外部脚本。
+CAPES_SRC="$HERE/src/capes"
+CAPES_DST="$APP/Contents/Resources/capes"
+if [ "$DRY" != "1" ] && [ -d "$CAPES_SRC" ]; then
+  mkdir -p "$CAPES_DST"
+  n=0
+  for f in "$CAPES_SRC"/*.cape; do
+    [ -e "$f" ] || continue
+    cmp -s "$f" "$CAPES_DST/$(basename "$f")" && continue
+    cp -p "$f" "$CAPES_DST/" && n=$((n+1))
+  done
+  echo "  已内置 cape: $(ls -1 "$CAPES_DST"/*.cape 2>/dev/null | wc -l | tr -d ' ') 套（本次更新 $n 个）"
+  ls -1 "$CAPES_DST" 2>/dev/null | sed 's/^/    /'
+fi
+
 # ★★必须重签**整个 .app 包**，不能只签包内那一个文件。
 #   实测（macOS 27.0.1）：改动包内任何文件后，外层包的签名即失效，
 #   AppleSystemPolicy 会直接杀掉进程，只留一条内核日志：

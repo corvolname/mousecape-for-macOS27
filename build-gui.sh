@@ -100,6 +100,13 @@ build_arch() {           # $1=arch $2=输出目录
   clang "${link[@]}" || return 1
 }
 
+# ★2026-10-16：把内置 cape 打进 app（Contents/Resources/capes）——
+#   `build-gui.sh` 只产出裸二进制，资源由这里准备；install-into-app.sh 负责最终拷进 .app。
+CAPES_SRC="$HERE/src/capes"
+if [ -d "$CAPES_SRC" ]; then
+  echo "  内置 cape: $(ls -1 "$CAPES_SRC"/*.cape 2>/dev/null | wc -l | tr -d ' ') 套 ($(ls -1 "$CAPES_SRC" 2>/dev/null | tr '\n' ' '))"
+fi
+
 mkdir -p "$(dirname "$OUT")"
 slices=()
 for a in "${ARCHS[@]}"; do

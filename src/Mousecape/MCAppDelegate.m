@@ -35,7 +35,14 @@
     return [exe.stringByDeletingLastPathComponent stringByAppendingPathComponent:@"mousecloak"];
 }
 
-- (void)applicationWillFinishLaunching:(NSNotification *)notification {
+- (void)applicationWillFinishLaunching:(NSNotification *)aNotification {
+    /* ★★2026-10-16 内置 cape 首次导入（用户口径：「这两套是随 app 内置的，
+       可以删除编辑，用户也可以新增」）。
+       ⇒ 把 app 内置的两套复制进用户库，之后一切以用户库为准（用户可改/可删/可新增）。
+       ★必须放在**这里**：`loadWindow` 会触发 nib 里的 MCLibraryController 扫描 cape 目录，
+         晚于它就会漏掉本次导入的文件。幂等，且仅在用户库为空时导入。 */
+    MCImportEmbeddedCapesIfNeeded();
+
     self.libraryWindowController = [[MCLibraryWindowController alloc] initWithWindowNibName:@"Library"];
     [self.libraryWindowController loadWindow];
 }

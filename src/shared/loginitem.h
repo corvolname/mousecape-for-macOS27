@@ -41,4 +41,28 @@ BOOL MCLoginPersistenceInstalled(void);
 /// LaunchAgent 的完整路径（调试/日志用）
 NSString *MCLoginPersistencePath(void);
 
+/* ★★2026-10-16 内置 cape（用户口径）：
+   「这两套是**随 app 内置**的，**可以删除编辑，用户也可以新增**」
+   ⇒ 内置的两套是"**初始主题库**"，不是不可变的资源库：
+     · app 首次运行时把它们**复制进用户库**（于是用户可以编辑/删除/新增）；
+     · 只在"用户库为空"时导入 ⇒ **用户删掉的不会再冒出来**。
+   同时"重启后自动恢复"用**内置兜底**，因此**不依赖任何外部脚本或用户目录**。 */
+
+/// 返回内置 cape 目录（app 包内 `Contents/Resources/capes`）；不在 app 内运行时返回 nil。
+NSString *MCEmbeddedCapesDirectory(void);
+
+/// 把内置 cape 复制进用户库（幂等；**仅当用户库里没有任何 .cape 时**才导入）。
+/// 返回本次导入的文件数（0 表示无需导入）。
+NSUInteger MCImportEmbeddedCapesIfNeeded(void);
+
+/// app 内置的 default 那套（`Resources/capes/default.cape`）。
+/// ★listen.m 在"用户库那套不存在"时用它兜底 ⇒ 开箱即用、不依赖用户目录。
+NSString *MCEmbeddedDefaultCapePath(void);
+
+/// 解析"本次应该应用哪一套 cape"（用户口径：以 app 内当前应用的为准，回退到内置 default）：
+///   ① 偏好 MCAppliedCursor 记录的那套（且文件存在）；
+///   ② 内置的 default 那套（`Resources/capes/default.cape`）；
+///   ③ 都没有 ⇒ 用户库里最新的一套；再没有 ⇒ nil。
+NSString *MCEffectiveCapePath(void);
+
 #endif /* Mousecape_loginitem_h */
